@@ -28,6 +28,14 @@ def CoT(question):
   return llm_prompt("Lets think step-by-step; " + question)
 
 def vanilla_MAD(question):
+  #second is an extra instruction for debators
+  MAD(question, "")
+
+def compressed_MAD(question):
+  #second is an extra instruction for debators
+  MAD(question, "")
+
+def MAD(question, extra_instruction):
   conversation_history = ""
   initial_answer = llm_prompt(question)
   condensed_answer = llm_prompt("condense '"+ initial_answer + "' into 1 sentence or less.")
@@ -43,8 +51,8 @@ def vanilla_MAD(question):
   round_number = 0
 
   while running:
-    conversation_history += "affirmative side: \n" + llm_prompt(debator_prompt + affirmative_prompt + "\n" + conversation_history) + "\n"
-    conversation_history += "negative side: \n" + llm_prompt(debator_prompt + negative_prompt + "\n" + conversation_history) + "\n"
+    conversation_history += "affirmative side: \n" + llm_prompt(debator_prompt + affirmative_prompt + extra_instruction + "\n" + conversation_history) + "\n"
+    conversation_history += "negative side: \n" + llm_prompt(debator_prompt + negative_prompt + extra_instruction + "\n" + conversation_history) + "\n"
 
     #judge:
     verdict = llm_prompt(judge_prompt + "\n" + conversation_history + "\n Verdict: ")

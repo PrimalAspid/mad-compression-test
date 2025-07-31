@@ -29,11 +29,11 @@ def CoT(question):
 
 def vanilla_MAD(question):
   #second is an extra instruction for debators
-  MAD(question, "")
+  return MAD(question, "")
 
 def compressed_MAD(question):
   #second is an extra instruction for debators
-  MAD(question, "")
+  return MAD(question, " You must present your arguments in the form: \n 1 - explanation of point, must be less than 20 tokens \n 2 - evidence to support point, must be less than 30 tokens \n 3 - explanation how evidence supports point, must be less than 30 tokens")
 
 def MAD(question, extra_instruction):
   conversation_history = ""
@@ -81,7 +81,7 @@ while running:
     current_answer = str(test_data["short_answer"][question_count])
 
     #!!!!!!!!!!!!! sub the below line for the function you want to test !!!!!!!!!!!!
-    llm_answer = vanilla_MAD(current_question)
+    llm_answer = compressed_MAD(current_question)
 
     #tests wether the the answer in dataset and answer given by llm are the same, using the model to evaluate.
     is_correct = llm_prompt("return 'True' if the first statement is contained anywhere within the second statement, 'False' if not: '" + current_answer + "' and '" + llm_answer + "'")

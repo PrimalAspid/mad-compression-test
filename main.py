@@ -23,6 +23,14 @@ def llm_prompt(prompt):
 
   return response.output_text
 
+def smart_llm_prompt(prompt):
+  response = llm.responses.create(
+    model="o4-mini-2025-04-16",
+    input=prompt
+  )
+
+  return response.output_text
+
 #llm reasoning method coding:
 def CoT(question):
   return llm_prompt("Lets think step-by-step; " + question)
@@ -33,7 +41,7 @@ def vanilla_MAD(question):
 
 def compressed_MAD(question):
   #second is an extra instruction for debators
-  return MAD(question, " You must present your arguments in the form: \n 1 - explanation of point, must be less than 20 tokens \n 2 - evidence to support point, must be less than 30 tokens \n 3 - explanation how evidence supports point, must be less than 30 tokens")
+  return MAD(question, " You must make 2 arguments: 1 to rebut your opponents last, and one to strengthen your own position. You must present your arguments in the form: \n explanation of point, must be less than 10 tokens \n evidence to support point, must be less than 20 tokens \n explanation how evidence supports point, must be less than 30 tokens")
 
 def MAD(question, extra_instruction):
   conversation_history = ""
@@ -43,8 +51,8 @@ def MAD(question, extra_instruction):
   debator_prompt = "You are a debater. Hello and welcome to the debate competition. It’s not necessary to fully agree with each other’s perspectives, as our objective is to find the correct answer. The debate topic is stated as follows: The question is '" + question + "' and an answer is '" + condensed_answer + "' Is this answer correct?"
   affirmative_prompt = " You are on the affermative side. Please express your viewpoints. "
   negative_prompt = " You are on the negative side. You disagree with the affirmative side's points. Provide your own answer, and argue why it is better."
-  judge_prompt = "You are a moderator. There will be two debators involved in a debate competition. They will present their answers and discuss their perspectives on an answers to question '" + question + "', the affermative side is arguing for the answer '"+initial_answer+"'. Your job is to evaluate both side's answers and either say if the debate is inconclusive, or state clearly the answer that is clearly better than the other. If you choose the latter, leave your answer in the form '[Quick thoughts] therefore the answer is [answer]' The debate goes as follow: "
-  out_of_time_judge_prompt = "You are a moderator. There will be two debators involved in a debate competition. They will present their answers and discuss their perspectives on an answers to question '" + question + "', the affermative side is arguing for the answer '"+initial_answer+"'. Your job is to evaluate both side's answers and state clearly the answer that is clearly better than the other. Please leave the final verdict in the form '[thoughts] therefore the answer is [answer]'. The debate goes as follow: "
+  judge_prompt = "A dabate has occured about whether the answer to the question '" + question + "' is '" + initial_answer + "'. You are to judge if the debate is conclusive, and there is an obvious answer, or if the debate is inconclusive. If there is a clear answer, please state it. The debate went as follows: "
+  out_of_time_judge_prompt = "A dabate has occured about whether the answer to the question '" + question + "' is '" + initial_answer + "'. You are to judge the correct answer. Please state this answer clearly. The debate went as follows: "
 
   #actual debate.
   running = True
@@ -60,14 +68,13 @@ def MAD(question, extra_instruction):
     #end conditions
     round_number += 1 #putting a max ammount of rounds, because of time and money limitations
     #so min 1 round has passed
-    if round_number > 1 and llm_prompt("Return 'False' if the following statement says the debate is inconclusive, otherwise return 'True'. '" + verdict + "'") == "True": #I have to use this roundabout method because the Judge llm is stupid, and cannot return a true or false reliably
+    if round_number > 1 and smart_llm_prompt("Return False if the following statement implies the debate is inconclusive, otherwise return True. '" + verdict + "'") == "True": #I have to use this roundabout method because the Judge llm is stupid, and cannot return a true or false reliably
       running = False
     elif round_number > 7:
       running = False
       verdict = llm_prompt(out_of_time_judge_prompt + "\n" + conversation_history)
 
-  final_answer = llm_prompt("extract the actual answer from this explanation of an answer. Give it in the form of a number: " + verdict)
-  return final_answer
+  return verdict
 
 #testing
 question_count = 0 # total num questions answered - in case something unexpected happens, I still want % correct. Also used as index
@@ -83,20 +90,20 @@ while running:
     #!!!!!!!!!!!!! sub the below line for the function you want to test !!!!!!!!!!!!
     llm_answer = compressed_MAD(current_question)
 
-    #tests wether the the answer in dataset and answer given by llm are the same, using the model to evaluate.
-    is_correct = llm_prompt("return 'True' if the first statement is contained anywhere within the second statement, 'False' if not: '" + current_answer + "' and '" + llm_answer + "'")
+    #tests wether the the answer in dataset and answer given by llm are the same, using the model to evaluate.  
+    is_correct = smart_llm_prompt("return True if the first statement is contained anywhere within the second statement, False if not: '" + current_answer + "' and '" + llm_answer + "'")
     if is_correct == "True":
       correct_questions += 1
 
     #breaks the code at 100, because communication with openai api is reallly slow, and it would take about 8 hours to finish the whole dataset
-    if question_count >= 20:
+    if question_count >= 100:
       running = False
     
     #----
     question_count += 1
      
     #just printing something to give me a progress bar
-    print(f"{question_count} : {is_correct} : {correct_questions / question_count * 100} : {current_answer} : {llm_answer}")
+    print(f"{question_count} : {is_correct} : {correct_questions / question_count * 100}")
 
     
   except: #breaks when there is an error(either eof, openai api running out of tokens, etc)

@@ -37,13 +37,16 @@ def CoT(question):
 
 def vanilla_MAD(question):
   #second is an extra instruction for debators
-  return MAD(question, "")
+  return MAD(question, "", "")
 
 def compressed_MAD(question):
   #second is an extra instruction for debators
-  return MAD(question, " You must make 2 arguments: 1 to rebut your opponents last, and one to strengthen your own position. You must present your arguments in the form: \n explanation of point, must be less than 10 tokens \n evidence to support point, must be less than 20 tokens \n explanation how evidence supports point, must be less than 30 tokens")
+  return MAD(question, " You must present your arguments in the form: explanation of point, must be less than 10 tokens, evidence to support point, must be less than 20 tokens, explanation of how evidence supports points - must be less than 40 tokens"," You must make 2 arguments: 1 to rebut your opponents last argument, and another to strengthen your position. You must present your arguments in the form: explanation of point, must be less than 10 tokens, evidence to support point, must be less than 20 tokens, explanation of how evidence supports points - must be less than 40 tokens")
 
-def MAD(question, extra_instruction):
+def MAD(question, initial_instruction, extra_instruction):
+  global total_token_count
+  global token_sample_size
+
   conversation_history = ""
   initial_answer = llm_prompt(question)
   condensed_answer = llm_prompt("condense '"+ initial_answer + "' into 1 sentence or less.")
@@ -58,9 +61,11 @@ def MAD(question, extra_instruction):
   running = True
   round_number = 0
 
+  #initial affirming side
+  conversation_history += "affirmative side: \n" + llm_prompt(debator_prompt + affirmative_prompt + initial_instruction + "\n" + conversation_history) + "\n"
   while running:
-    conversation_history += "affirmative side: \n" + llm_prompt(debator_prompt + affirmative_prompt + extra_instruction + "\n" + conversation_history) + "\n"
     conversation_history += "negative side: \n" + llm_prompt(debator_prompt + negative_prompt + extra_instruction + "\n" + conversation_history) + "\n"
+    conversation_history += "affirmative side: \n" + llm_prompt(debator_prompt + affirmative_prompt + extra_instruction + "\n" + conversation_history) + "\n"
 
     #judge:
     verdict = llm_prompt(judge_prompt + "\n" + conversation_history + "\n Verdict: ")
@@ -74,11 +79,21 @@ def MAD(question, extra_instruction):
       running = False
       verdict = llm_prompt(out_of_time_judge_prompt + "\n" + conversation_history)
 
+  #counting tokens
+  try:
+    total_token_count += int(smart_llm_prompt("count how many tokens are used in the following converation. give your answer as a number only. I like cheese = 3. I cook pizza = 3. Harry and john went to the shop = 7. " + conversation_history + " = "))
+    token_sample_size += 1
+  except:
+    print("error counting tokens")
+
   return verdict
 
 #testing
 question_count = 0 # total num questions answered - in case something unexpected happens, I still want % correct. Also used as index
 correct_questions = 0 #runnning total of number of questions correctly answered
+
+total_token_count = 0 
+token_sample_size = 0
 
 running = True
 while running:
@@ -116,3 +131,4 @@ question_count -= 1
 percent_correct = correct_questions / question_count * 100
 print(f"number tested : {question_count}")
 print(f"percentage correct : {percent_correct}")
+print(f"avg number tokens : {total_token_count / token_sample_size}")
